@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from scipy.io.wavfile import read as wavread
+import python_speech_features as sf
 # import IPython
 
 
@@ -17,3 +18,6 @@ for file in files:
     fs,audio = wavread(file)
     break
 # IPython.display.Audio(file)
+
+
+# Extract Cepstral Coefficients
