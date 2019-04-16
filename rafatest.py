@@ -2,8 +2,14 @@ import numpy as np
 import os
 from scipy.io.wavfile import read as wavread
 import python_speech_features as sf
-# import IPython
 
+import amfm_decompy.pYAAPT as pYAAPT
+import amfm_decompy.basic_tools as basic
+
+import pysptk
+import librosa
+import pyrenn
+# import IPython
 
 # Set the folders
 speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
@@ -20,5 +26,12 @@ for file in files:
 # IPython.display.Audio(file)
 
 
-# Extract Cepstral Coefficients
-mfcc_features = sf.mfcc(audio,fs)
+# YAAPT pitches
+signal = basic.SignalObj(file)
+pitchY = pYAAPT.yaapt(signal, frame_length=25, frame_space=5, f0_min=40, f0_max=300)
+
+plt.plot(pitchY.values_interp, label='YAAPT', color='blue')
+plt.xlabel('samples')
+plt.ylabel('pitch (Hz)')'
+
+#
