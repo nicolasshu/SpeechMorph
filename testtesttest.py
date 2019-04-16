@@ -12,24 +12,11 @@ from fastdtw import fastdtw
 from tqdm import tqdm
 import seaborn as sns
 from scipy.signal import argrelextrema
-
-################################################################################
-# GLOBAL VARIABLES
-################################################################################
-plt.rcParams['figure.dpi'] = 150
-# plt.rcParams['figure.figsize'] = 1,1
-
-# Set the folders
-speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
-
-# ==============================================================================
-# TOY PROBLEM
-folderpath, files = get_files(speakers[0])
-for file in files:
-    file = os.path.join(folderpath,file)
-    fs,audio = wavread(file)
-    break
-
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import itertools
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
@@ -74,7 +61,7 @@ def extract_segments(audio,stride=400):
         seg_list.append(seg)
     return seg_list
 # ==============================================================================
-def extract_features(audio,function):
+def extract_features0(audio,function):
     N = len(audio)
     T = N/fs
     win_t = 5e-3                        # Set the window duration 5 msec
@@ -160,8 +147,121 @@ def test2():
 
     return ind_locmax, locmax
 # ==============================================================================
+def align_features(feat0,feat1):
+  	distance, path = fastdtw(feat0,feat0,dist=euclidean)
+    assert distance == 0
+    distance, path = fastdtw(feat1,feat1,dist=euclidean)
+    assert distance == 0
+
+    distance,path = fastdtw(feat0,feat1,dist=euclidean)
+
+    FEAT0 = []
+    FEAT1 = []
+    for step in path:
+        i,j = step
+        FEAT0.append(feat0[i])
+        FEAT1.append(feat1[j])
+
+    FEAT0 = np.array(FEAT0)
+    FEAT1 = np.array(FEAT1)
+	return FEAT0,FEAT1
+# ==============================================================================
+def extract_features(audio,numcep=25):
+  	result = sf.mfcc(audio,numcep=numcep)
+    # ----------------------------------
+    # Rafa, fill in here
+    # ----------------------------------
 
 
+
+
+
+    #-----------------------------------
+    # ----------------------------------
+    return result
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+################################################################################
+# GLOBAL VARIABLES
+################################################################################
+plt.rcParams['figure.dpi'] = 150
+# plt.rcParams['figure.figsize'] = 1,1
+
+# Set the folders
+speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
+combos = []
+for subset in itertools.combinations(stuff, 2):
+  	combos.append(subset)
+
+
+def Main():
+	for combo in combos:
+    	spk0,spk1 = combo[0],combo[1]
+        folderpath0, files0 = get_files(spk0)
+		folderpath1, files1 = get_files(spk1)
+    	for file0,file1 in zip(files0,files1):
+            file0 = os.path.join(folderpath0,file0)
+            file1 = os.path.join(folderpath1,file1)
+            fs0,audio0 = wavread(file0)
+            fs1,audio1 = wavread(file1)
+            assert fs0 == fs1
+
+            mcep0_ = extract_features(audio0)
+            mcep1_ = extract_features(audio1)
+
+            mcep0,mcep1 = align_features(mcep0_,mcep1_)
+
+            0
+
+
+
+if __name__ == '__main__':
+  	Main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# TRASH
+
+
+# DO NOT USE ANYTHING BELOW
+
+
+
+
+# ==============================================================================
+# TOY PROBLEM
+folderpath, files = get_files(speakers[0])
+for file in files:
+    file = os.path.join(folderpath,file)
+    fs,audio = wavread(file)
+    break
+
+# ==============================================================================
+# TOY PROBLEM 2
 
 folderpath0, files0 = get_files(speakers[0])
 folderpath1, files1 = get_files(speakers[1])
@@ -173,18 +273,14 @@ for file0,file1 in zip(files0,files1):
     assert fs0 == fs1
     break
 
-mfcc0 = sf.mfcc(audio0)
-mfcc1 = sf.mfcc(audio1)
+mfcc0 = sf.mfcc(audio0,numcep=25)
+mfcc1 = sf.mfcc(audio1,numcep=25)
 distance, path = fastdtw(mfcc0,mfcc0,dist=euclidean)
 assert distance == 0
 distance, path = fastdtw(mfcc1,mfcc1,dist=euclidean)
 assert distance == 0
 
 distance,path = fastdtw(mfcc0,mfcc1,dist=euclidean)
-distance
-
-mfcc0.shape
-mfcc1.shape
 
 MFCC0 = []
 MFCC1 = []
@@ -195,10 +291,56 @@ for step in path:
 
 MFCC0 = np.array(MFCC0)
 MFCC1 = np.array(MFCC1)
+
+plt.subplot(411)
 plt.imshow(mfcc0.T)
-
+plt.subplot(412)
 plt.imshow(mfcc1.T)
-
-
+plt.subplot(413)
 plt.imshow(MFCC0.T)
+plt.subplot(414)
 plt.imshow(MFCC1.T)
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super(Net,self).__init__()
+        self.fc1 = nn.Linear(25,75)
+        self.fc2 = nn.Linear(75,25)
+    def forward(self,x):
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        return x
+
+
+np.random.seed(100)
+a = torch.Tensor(np.random.randint(10,size=(1,25)))
+b = torch.Tensor(np.ones((1,25)))
+model = Net()
+model.zero_grad()
+optimizer = optim.SGD(model.parameters(),lr=0.0001)
+optimizer.zero_grad()
+
+loss_list = []
+output_list = [b.detach().numpy()]
+N=100
+for k in range(N):
+    output = model(a)
+    criterion = nn.MSELoss()
+    loss = criterion(output,b)
+    loss.backward()
+    optimizer.step()
+    # print(loss)
+    loss_list.append(loss)
+    output_list.append(output.detach().numpy())
+    if k==N-1:
+        plt.plot(loss_list);
+        plt.figure();
+        img = np.squeeze(np.array(output_list))
+        plt.imshow(img,cmap='jet')
+
+def mel_cepstral_distortion(target,estimated):
+    return 10*np.log(10) * torch.sqrt(2*torch.sum((b-output)**2))
+
+for n in range(N):
+    output = model
