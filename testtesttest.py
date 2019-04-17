@@ -12,11 +12,25 @@ from fastdtw import fastdtw
 from tqdm import tqdm
 import seaborn as sns
 from scipy.signal import argrelextrema
+import scipy.signal as sig
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import itertools
+from sklearn.model_selection import train_test_split
+################################################################################
+# GLOBAL VARIABLES
+################################################################################
+plt.rcParams['figure.dpi'] = 150
+# plt.rcParams['figure.figsize'] = 1,1
+
+# Set the folders
+speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
+combos = []
+for subset in itertools.combinations(speakers, 2):
+    combos.append(subset)
+
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
@@ -27,7 +41,52 @@ def get_files(speaker):
     files = sorted(os.listdir(folderpath))
     return folderpath, files
 # ==============================================================================
-def plot_rec_lengths(speakers=speakers):
+def extract_features(audio,fs=16000,numcep=25,winlen=0.025,winstep=0.01):
+    mfcc = sf.mfcc(audio,numcep=numcep,samplerate=fs,winlen=winlen,winstep=winstep)
+    freq,time,stft = sig.stft(audio,fs=fs,nperseg=winlen*fs,noverlap=(winlen-winstep)*fs)
+    lps = np.abs(stft)
+    phase = np.angle(stft)
+    diff_time = lps.shape[1] - mfcc.T.shape[1]
+    mfcc = np.pad(mfcc, [(0, diff_time), (0, 0)], mode='constant')
+    print(mfcc.T.shape)
+    print(lps.shape)
+    feat = np.concatenate((mfcc.T,lps))
+    return feat,{'mfcc':mfcc,'lps':lps,'phase':phase},{'f':freq,'t':time,'stft':stft}
+# ==============================================================================
+def align_features(feat0,feat1):
+    distance, path = fastdtw(feat0,feat0,dist=euclidean)
+    assert distance == 0
+    distance, path = fastdtw(feat1,feat1,dist=euclidean)
+    assert distance == 0
+
+    distance,path = fastdtw(feat0,feat1,dist=euclidean)
+    FEAT0 = []
+    FEAT1 = []
+    for step in path:
+        i,j = step
+        FEAT0.append(feat0[i])
+        FEAT1.append(feat1[j])
+    FEAT0 = np.array(FEAT0)
+    FEAT1 = np.array(FEAT1)
+    return FEAT0,FEAT1
+# ==============================================================================
+def mel_cepstral_distortion(target,estimated):
+    target = torch.Tensor(target)
+    estimated = torch.Tensor(estimated)
+    loss = 10*torch.log(torch.Tensor([10])) * torch.sqrt(2*torch.sum((target-estimated)**2-1))
+    return loss
+# ==============================================================================
+def stft_distortion(target,estimated):
+    target = torch.Tensor(target)
+    estimated = torch.Tensor(estimated)
+    loss = torch.mean((target-estimated)**2)
+    return loss
+# ==============================================================================
+
+################################################################################
+# USELESS HELPER FUNCTIONS
+################################################################################
+def plot_rec_lengths(speakers):
     speaker_rec_length = []                                                     # Initialize a speaker list
     for spkr in speakers:                                                       # For every speaker
         folderpath = os.path.join(root,'datasets',spkr,'wav')                   #     Get the folderpath
@@ -44,8 +103,7 @@ def plot_rec_lengths(speakers=speakers):
     plt.legend()                                                                # Put in the legend
     plt.ylabel('Length of Signal (N)')
     plt.xlabel('File number')
-plot_rec_lengths()
-
+# plot_rec_lengths()
 # ==============================================================================
 def extract_segments(audio,stride=400):
     N = len(audio)
@@ -94,9 +152,9 @@ def test(filepath):
     plt.subplot(212)
     plt.plot(sig[N:]-sig_[N:],linewidth=0.5,label=u'$s[n] - \hat{s}[n]$')
     plt.legend()
-test('UW.wav')
-test('AA.wav')
-test('IY.wav')
+# test('UW.wav')
+# test('AA.wav')
+# test('IY.wav')
 # ==============================================================================
 def get_fundfreq(fs,audio,order=12,mode='covariance'):
     import audiolazy as AL
@@ -147,91 +205,187 @@ def test2():
 
     return ind_locmax, locmax
 # ==============================================================================
-def align_features(feat0,feat1):
-  	distance, path = fastdtw(feat0,feat0,dist=euclidean)
-    assert distance == 0
-    distance, path = fastdtw(feat1,feat1,dist=euclidean)
-    assert distance == 0
-
-    distance,path = fastdtw(feat0,feat1,dist=euclidean)
-
-    FEAT0 = []
-    FEAT1 = []
-    for step in path:
-        i,j = step
-        FEAT0.append(feat0[i])
-        FEAT1.append(feat1[j])
-
-    FEAT0 = np.array(FEAT0)
-    FEAT1 = np.array(FEAT1)
-	return FEAT0,FEAT1
-# ==============================================================================
-def extract_features(audio,numcep=25):
-  	result = sf.mfcc(audio,numcep=numcep)
-    # ----------------------------------
-    # Rafa, fill in here
-    # ----------------------------------
-
-
-
-
-
-    #-----------------------------------
-    # ----------------------------------
-    return result
 # ==============================================================================
 # ==============================================================================
 # ==============================================================================
-# ==============================================================================
-# ==============================================================================
-################################################################################
-# GLOBAL VARIABLES
-################################################################################
-plt.rcParams['figure.dpi'] = 150
-# plt.rcParams['figure.figsize'] = 1,1
-
-# Set the folders
-speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
-combos = []
-for subset in itertools.combinations(stuff, 2):
-  	combos.append(subset)
-
 
 def Main():
-	for combo in combos:
-    	spk0,spk1 = combo[0],combo[1]
-        folderpath0, files0 = get_files(spk0)
-		folderpath1, files1 = get_files(spk1)
-    	for file0,file1 in zip(files0,files1):
-            file0 = os.path.join(folderpath0,file0)
-            file1 = os.path.join(folderpath1,file1)
-            fs0,audio0 = wavread(file0)
-            fs1,audio1 = wavread(file1)
-            assert fs0 == fs1
+    for combo in combos:                                                            # For each combination
+        spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
+        folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
+        folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
 
-            mcep0_ = extract_features(audio0)
-            mcep1_ = extract_features(audio1)
+        # Prepare the Neural Network
+        model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+        optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
 
-            mcep0,mcep1 = align_features(mcep0_,mcep1_)
+        for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
+            # if file_n == 0 or file_n==1: continue
+            print('File %d'%file_n)
+            file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
+            file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
+            fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
+            fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
+            assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
 
-            0
+            feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
+            feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
+
+            feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
+            mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
+
+            num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
+            num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
+
+            # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_)); plt.subplot(412); plt.pcolormesh(comps0['mfcc'].T);
+            # plt.subplot(413); plt.pcolormesh(np.log(feat1_)); plt.subplot(414); plt.pcolormesh(comps1['mfcc'].T); plt.tight_layout(); plt.savefig('./non-aligned.png')
+
+            # plt.figure(); plt.subplot(411); plt.pcolormesh(np.log(feat0.T)); plt.subplot(412); plt.pcolormesh(mfcc0.T);
+            # plt.subplot(413); plt.pcolormesh(np.log(feat1.T)); plt.subplot(414); plt.pcolormesh(mfcc1.T); plt.tight_layout(); plt.savefig('./aligned.png')
+
+            L,F = feat0.shape                                                       #          L windows and F features
+
+            loss_list = []                                                          #          Set the loss_list
+            for l in range(L):                                                      #          For each window segment on audio
+                seg = feat0[l]                                                      #              Get the segment
+                output = model(seg)                                                 #              Pass the segment through the model
+                output_stft = output[:num_feat_stft]                                #              Get the STFT output
+                output_mfcc = output[-num_feat_mfcc:]                               #              Get the MFCC output
+                target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
+                MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
+                STFT_D = stft_distortion(output_stft,target_stft)
+                loss = MCD + STFT_D                                                 #              Compute the loss
+                loss.backward()                                                     #              Set the Backpropagation
+                optimizer.step()                                                    #              Take a step
+                loss_list.append(loss)                                              #              Append the loss to a loss list
 
 
+            if file_n == 10: break
+        break
+    plt.plot(loss_list)
 
+################################################################################
+# MAIN
+################################################################################
+class CustomNet1(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.fc1 = nn.Linear(226,452)
+        self.fc2 = nn.Linear(452,226)
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        return x
 if __name__ == '__main__':
-  	Main()
+    Main()
 
 
 
 
 
 
+####  delete later
+# for combo in combos:
+#     spk0,spk1 = combo[0],combo[1]
+#     folderpath0, files0 = get_files(spk0)
+#     folderpath1, files1 = get_files(spk1)
+#
+#     source_train, source_test = train_test_split(files0, test_size=0.40)
+#
+#
+#     for file0,file1 in zip(files0,files1):
+#         file0 = os.path.join(folderpath0,file0)
+#         file1 = os.path.join(folderpath1,file1)
+#         fs0,audio0 = wavread(file0)
+#         fs1,audio1 = wavread(file1)
+#         assert fs0 == fs1
+#
+#         feat0_ = extract_features(audio0)
+#         feat1_ = extract_features(audio1)
+#
+#         feat0,feat1 = align_features(feat0_,feat1_)
+#         break
+#
+#     break
 
 
 
 
 
+################################################################################
+# NICK EXPERIMENTING WITH SHIT
+################################################################################
 
+# class CustomNet1(nn.Module):                                                    # Define the Neural Network
+#     def __init__(self):
+#         super(CustomNet1,self).__init__()
+#         self.fc1 = nn.Linear(226,452)
+#         self.fc2 = nn.Linear(452,226)
+#     def forward(self,x):
+#         x = torch.Tensor(x)
+#         x = torch.tanh(self.fc1(x))
+#         x = torch.tanh(self.fc2(x))
+#         return x
+# for combo in combos:                                                            # For each combination
+#     spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
+#     folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
+#     folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
+#
+#     # Prepare the Neural Network
+#     model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+#     optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
+#
+#     for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
+#         # if file_n == 0 or file_n==1: continue
+#         print('File %d'%file_n)
+#         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
+#         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
+#         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
+#         fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
+#         assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
+#
+#         feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
+#         feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
+#
+#         feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
+#         mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
+#
+#         num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
+#         num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
+#         # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_));
+#         # plt.subplot(4,1,2); plt.pcolormesh(comps0['mfcc'].T);
+#         # plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1_));
+#         # plt.subplot(4,1,4); plt.pcolormesh(comps1['mfcc'].T);
+#         # plt.tight_layout(); plt.savefig('./non-aligned.png')
+#         # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0.T));
+#         # plt.subplot(4,1,2); plt.pcolormesh(mfcc0.T);
+#         # plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1.T));
+#         # plt.subplot(4,1,4); plt.pcolormesh(mfcc1.T);
+#         # plt.tight_layout(); plt.savefig('./aligned.png')
+#
+#         L,F = feat0.shape                                                       #          L windows and F features
+#
+#         loss_list = []                                                          #          Set the loss_list
+#         for l in range(L):                                                      #          For each window segment on audio
+#             seg = feat0[l]                                                      #              Get the segment
+#             output = model(seg)                                                 #              Pass the segment through the model
+#             output_stft = output[:num_feat_stft]                                #              Get the STFT output
+#             output_mfcc = output[-num_feat_mfcc:]                               #              Get the MFCC output
+#             target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
+#             MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
+#             STFT_D = stft_distortion(output_stft,target_stft)
+#             loss = MCD + STFT_D                                                 #              Compute the loss
+#             loss.backward()                                                     #              Set the Backpropagation
+#             optimizer.step()                                                    #              Take a step
+#             loss_list.append(loss)                                              #              Append the loss to a loss list
+#
+#
+#         if file_n == 10: break
+#     break
+# plt.plot(loss_list)
+
+###############################################################################
 
 
 
@@ -250,97 +404,53 @@ if __name__ == '__main__':
 # DO NOT USE ANYTHING BELOW
 
 
-
-
-# ==============================================================================
-# TOY PROBLEM
-folderpath, files = get_files(speakers[0])
-for file in files:
-    file = os.path.join(folderpath,file)
-    fs,audio = wavread(file)
-    break
-
-# ==============================================================================
-# TOY PROBLEM 2
-
-folderpath0, files0 = get_files(speakers[0])
-folderpath1, files1 = get_files(speakers[1])
-for file0,file1 in zip(files0,files1):
-    file0 = os.path.join(folderpath0,file0)
-    file1 = os.path.join(folderpath1,file1)
-    fs0,audio0 = wavread(file0)
-    fs1,audio1 = wavread(file1)
-    assert fs0 == fs1
-    break
-
-mfcc0 = sf.mfcc(audio0,numcep=25)
-mfcc1 = sf.mfcc(audio1,numcep=25)
-distance, path = fastdtw(mfcc0,mfcc0,dist=euclidean)
-assert distance == 0
-distance, path = fastdtw(mfcc1,mfcc1,dist=euclidean)
-assert distance == 0
-
-distance,path = fastdtw(mfcc0,mfcc1,dist=euclidean)
-
-MFCC0 = []
-MFCC1 = []
-for step in path:
-    i,j = step
-    MFCC0.append(mfcc0[i])
-    MFCC1.append(mfcc1[j])
-
-MFCC0 = np.array(MFCC0)
-MFCC1 = np.array(MFCC1)
-
-plt.subplot(411)
-plt.imshow(mfcc0.T)
-plt.subplot(412)
-plt.imshow(mfcc1.T)
-plt.subplot(413)
-plt.imshow(MFCC0.T)
-plt.subplot(414)
-plt.imshow(MFCC1.T)
-
-
-class Net(nn.Module):
-    def __init__(self):
-        super(Net,self).__init__()
-        self.fc1 = nn.Linear(25,75)
-        self.fc2 = nn.Linear(75,25)
-    def forward(self,x):
-        x = torch.tanh(self.fc1(x))
-        x = torch.tanh(self.fc2(x))
-        return x
-
-
-np.random.seed(100)
-a = torch.Tensor(np.random.randint(10,size=(1,25)))
-b = torch.Tensor(np.ones((1,25)))
-model = Net()
-model.zero_grad()
-optimizer = optim.SGD(model.parameters(),lr=0.0001)
-optimizer.zero_grad()
-
-loss_list = []
-output_list = [b.detach().numpy()]
-N=100
-for k in range(N):
-    output = model(a)
-    criterion = nn.MSELoss()
-    loss = criterion(output,b)
-    loss.backward()
-    optimizer.step()
-    # print(loss)
-    loss_list.append(loss)
-    output_list.append(output.detach().numpy())
-    if k==N-1:
-        plt.plot(loss_list);
-        plt.figure();
-        img = np.squeeze(np.array(output_list))
-        plt.imshow(img,cmap='jet')
-
-def mel_cepstral_distortion(target,estimated):
-    return 10*np.log(10) * torch.sqrt(2*torch.sum((b-output)**2))
-
-for n in range(N):
-    output = model
+#
+#
+# # ==============================================================================
+# # TOY PROBLEM
+# folderpath, files = get_files(speakers[0])
+# for file in files:
+#     file = os.path.join(folderpath,file)
+#     fs,audio = wavread(file)
+#     break
+#
+# # ==============================================================================
+# # TOY PROBLEM 2
+#
+# folderpath0, files0 = get_files(speakers[0])
+# folderpath1, files1 = get_files(speakers[1])
+# for file0,file1 in zip(files0,files1):
+#     file0 = os.path.join(folderpath0,file0)
+#     file1 = os.path.join(folderpath1,file1)
+#     fs0,audio0 = wavread(file0)
+#     fs1,audio1 = wavread(file1)
+#     assert fs0 == fs1
+#     break
+#
+# mfcc0 = sf.mfcc(audio0,numcep=25)
+# mfcc1 = sf.mfcc(audio1,numcep=25)
+# distance, path = fastdtw(mfcc0,mfcc0,dist=euclidean)
+# assert distance == 0
+# distance, path = fastdtw(mfcc1,mfcc1,dist=euclidean)
+# assert distance == 0
+#
+# distance,path = fastdtw(mfcc0,mfcc1,dist=euclidean)
+#
+# MFCC0 = []
+# MFCC1 = []
+# for step in path:
+#     i,j = step
+#     MFCC0.append(mfcc0[i])
+#     MFCC1.append(mfcc1[j])
+#
+# MFCC0 = np.array(MFCC0)
+# MFCC1 = np.array(MFCC1)
+#
+# plt.subplot(411)
+# plt.imshow(mfcc0.T)
+# plt.subplot(412)
+# plt.imshow(mfcc1.T)
+# plt.subplot(413)
+# plt.imshow(MFCC0.T)
+# plt.subplot(414)
+# plt.imshow(MFCC1.T)
