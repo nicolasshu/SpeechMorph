@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import itertools
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 ################################################################################
 # GLOBAL VARIABLES
 ################################################################################
@@ -48,8 +49,8 @@ def extract_features(audio,fs=16000,numcep=25,winlen=0.025,winstep=0.01):
     phase = np.angle(stft)
     diff_time = lps.shape[1] - mfcc.T.shape[1]
     mfcc = np.pad(mfcc, [(0, diff_time), (0, 0)], mode='constant')
-    print(mfcc.T.shape)
-    print(lps.shape)
+    # print(mfcc.T.shape)
+    # print(lps.shape)
     feat = np.concatenate((mfcc.T,lps))
     return feat,{'mfcc':mfcc,'lps':lps,'phase':phase},{'f':freq,'t':time,'stft':stft}
 # ==============================================================================
@@ -74,12 +75,12 @@ def mel_cepstral_distortion(target,estimated):
     target = torch.Tensor(target)
     estimated = torch.Tensor(estimated)
     loss = 10*torch.log(torch.Tensor([10])) * torch.sqrt(2*torch.sum((target-estimated)**2-1))
-    return loss
+    return loss#.pow(2)
 # ==============================================================================
 def stft_distortion(target,estimated):
     target = torch.Tensor(target)
     estimated = torch.Tensor(estimated)
-    loss = torch.mean((target-estimated)**2)
+    loss = (torch.mean((target-estimated)**2))#.pow(2)
     return loss
 # ==============================================================================
 
@@ -205,64 +206,69 @@ def test2():
 
     return ind_locmax, locmax
 # ==============================================================================
+def get_output_components(output,num_feat_stft,num_feat_mfcc):
+    out_stft = output[:num_feat_stft]
+    out_mfcc = output[-num_feat_mfcc:]
+    return out_stft,out_mfcc
 # ==============================================================================
 # ==============================================================================
 # ==============================================================================
 
 def Main():
-    for combo in combos:                                                            # For each combination
-        spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
-        folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
-        folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
-
-        # Prepare the Neural Network
-        model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
-        optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
-
-        for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
-            # if file_n == 0 or file_n==1: continue
-            print('File %d'%file_n)
-            file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
-            file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
-            fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
-            fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
-            assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
-
-            feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
-            feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
-
-            feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
-            mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
-
-            num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
-            num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
-
-            # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_)); plt.subplot(412); plt.pcolormesh(comps0['mfcc'].T);
-            # plt.subplot(413); plt.pcolormesh(np.log(feat1_)); plt.subplot(414); plt.pcolormesh(comps1['mfcc'].T); plt.tight_layout(); plt.savefig('./non-aligned.png')
-
-            # plt.figure(); plt.subplot(411); plt.pcolormesh(np.log(feat0.T)); plt.subplot(412); plt.pcolormesh(mfcc0.T);
-            # plt.subplot(413); plt.pcolormesh(np.log(feat1.T)); plt.subplot(414); plt.pcolormesh(mfcc1.T); plt.tight_layout(); plt.savefig('./aligned.png')
-
-            L,F = feat0.shape                                                       #          L windows and F features
-
-            loss_list = []                                                          #          Set the loss_list
-            for l in range(L):                                                      #          For each window segment on audio
-                seg = feat0[l]                                                      #              Get the segment
-                output = model(seg)                                                 #              Pass the segment through the model
-                output_stft = output[:num_feat_stft]                                #              Get the STFT output
-                output_mfcc = output[-num_feat_mfcc:]                               #              Get the MFCC output
-                target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
-                MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
-                STFT_D = stft_distortion(output_stft,target_stft)
-                loss = MCD + STFT_D                                                 #              Compute the loss
-                loss.backward()                                                     #              Set the Backpropagation
-                optimizer.step()                                                    #              Take a step
-                loss_list.append(loss)                                              #              Append the loss to a loss list
-
-
-            if file_n == 10: break
-        break
-    plt.plot(loss_list)
+    # for combo in combos:                                                            # For each combination
+    #     spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
+    #     folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
+    #     folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
+    #
+    #     # Prepare the Neural Network
+    #     model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+    #     optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
+    #
+    #     for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
+    #         # if file_n == 0 or file_n==1: continue
+    #         print('File %d'%file_n)
+    #         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
+    #         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
+    #         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
+    #         fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
+    #         assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
+    #
+    #         feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
+    #         feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
+    #
+    #         feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
+    #         mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
+    #
+    #         num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
+    #         num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
+    #
+    #         # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_)); plt.subplot(412); plt.pcolormesh(comps0['mfcc'].T);
+    #         # plt.subplot(413); plt.pcolormesh(np.log(feat1_)); plt.subplot(414); plt.pcolormesh(comps1['mfcc'].T); plt.tight_layout(); plt.savefig('./non-aligned.png')
+    #
+    #         # plt.figure(); plt.subplot(411); plt.pcolormesh(np.log(feat0.T)); plt.subplot(412); plt.pcolormesh(mfcc0.T);
+    #         # plt.subplot(413); plt.pcolormesh(np.log(feat1.T)); plt.subplot(414); plt.pcolormesh(mfcc1.T); plt.tight_layout(); plt.savefig('./aligned.png')
+    #
+    #         L,F = feat0.shape                                                       #          L windows and F features
+    #
+    #         loss_list = []                                                          #          Set the loss_list
+    #         for l in range(L):                                                      #          For each window segment on audio
+    #             seg = feat0[l]                                                      #              Get the segment
+    #             output = model(seg)                                                 #              Pass the segment through the model
+    #
+    #             target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
+    #             MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
+    #             STFT_D = stft_distortion(output_stft,target_stft)
+    #             loss = MCD + STFT_D                                                 #              Compute the loss
+    #             loss.backward()                                                     #              Set the Backpropagation
+    #             optimizer.step()                                                    #              Take a step
+    #             loss_list.append(loss)                                              #              Append the loss to a loss list
+    #
+    #
+    #
+    #         if file_n == 10: break
+    #     break
+    # plt.plot(loss_list)
+    # break
 
 ################################################################################
 # MAIN
@@ -317,74 +323,76 @@ if __name__ == '__main__':
 # NICK EXPERIMENTING WITH SHIT
 ################################################################################
 
-# class CustomNet1(nn.Module):                                                    # Define the Neural Network
-#     def __init__(self):
-#         super(CustomNet1,self).__init__()
-#         self.fc1 = nn.Linear(226,452)
-#         self.fc2 = nn.Linear(452,226)
-#     def forward(self,x):
-#         x = torch.Tensor(x)
-#         x = torch.tanh(self.fc1(x))
-#         x = torch.tanh(self.fc2(x))
-#         return x
-# for combo in combos:                                                            # For each combination
-#     spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
-#     folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
-#     folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
-#
-#     # Prepare the Neural Network
-#     model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
-#     optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
-#
-#     for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
-#         # if file_n == 0 or file_n==1: continue
-#         print('File %d'%file_n)
-#         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
-#         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
-#         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
-#         fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
-#         assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
-#
-#         feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
-#         feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
-#
-#         feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
-#         mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
-#
-#         num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
-#         num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
-#         # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_));
-#         # plt.subplot(4,1,2); plt.pcolormesh(comps0['mfcc'].T);
-#         # plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1_));
-#         # plt.subplot(4,1,4); plt.pcolormesh(comps1['mfcc'].T);
-#         # plt.tight_layout(); plt.savefig('./non-aligned.png')
-#         # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0.T));
-#         # plt.subplot(4,1,2); plt.pcolormesh(mfcc0.T);
-#         # plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1.T));
-#         # plt.subplot(4,1,4); plt.pcolormesh(mfcc1.T);
-#         # plt.tight_layout(); plt.savefig('./aligned.png')
-#
-#         L,F = feat0.shape                                                       #          L windows and F features
-#
-#         loss_list = []                                                          #          Set the loss_list
-#         for l in range(L):                                                      #          For each window segment on audio
-#             seg = feat0[l]                                                      #              Get the segment
-#             output = model(seg)                                                 #              Pass the segment through the model
-#             output_stft = output[:num_feat_stft]                                #              Get the STFT output
-#             output_mfcc = output[-num_feat_mfcc:]                               #              Get the MFCC output
-#             target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
-#             MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
-#             STFT_D = stft_distortion(output_stft,target_stft)
-#             loss = MCD + STFT_D                                                 #              Compute the loss
-#             loss.backward()                                                     #              Set the Backpropagation
-#             optimizer.step()                                                    #              Take a step
-#             loss_list.append(loss)                                              #              Append the loss to a loss list
-#
-#
-#         if file_n == 10: break
-#     break
-# plt.plot(loss_list)
+class CustomNet1(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.fc1 = nn.Linear(226,452)
+        self.fc2 = nn.Linear(452,226)
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        return x
+for combo in combos:                                                            # For each combination
+    print(combo)
+    break
 
+spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
+folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
+folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
+
+# Prepare the Neural Network
+model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
+
+N_epochs = 4
+epoch_train_loss = []
+for epoch_num in range(N_epochs):
+    print('Epoch [%d/%d]' % (epoch_num+1,N_epochs) , end=' ')
+
+    epoch_loss_list = []                                                              #          Set the loss_list
+    for file_n, file0,file1 in zip(np.arange(len(files0)),files0,files1):       #     For each set of files
+        # if file_n == 0 or file_n==1: continue
+        # print('File %d'%file_n)
+        if file_n == 5: break
+        print(".",end='')
+        file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
+        file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
+        fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
+        fs1,audio1 = wavread(file1)                                             #          Obtain the audio1
+        assert fs0 == fs1                                                       #          Make sure that the sampling freqs are the same
+
+        feat0_,comps0,stft0 = extract_features(audio0,fs=fs0)                   #          Extract the features for audio0
+        feat1_,comps1,stft1 = extract_features(audio1,fs=fs1)                   #          Extract the features for audio1
+
+        feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
+        mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
+
+        num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
+        num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
+        # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_)); plt.subplot(4,1,2); plt.pcolormesh(comps0['mfcc'].T); plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1_)); plt.subplot(4,1,4); plt.pcolormesh(comps1['mfcc'].T); plt.tight_layout(); plt.savefig('./non-aligned.png'); plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0.T)); plt.subplot(4,1,2); plt.pcolormesh(mfcc0.T); plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1.T)); plt.subplot(4,1,4); plt.pcolormesh(mfcc1.T); plt.tight_layout(); plt.savefig('./aligned.png')
+        L,F = feat0.shape                                                       #          L windows and F features
+
+        for l in range(L):                                                      #          For each window segment on audio
+            seg = feat0[l]                                                      #              Get the segment
+            output = model(seg)                                                 #              Pass the segment through the model
+            output_stft, output_mfcc = get_output_components(output,            #              Get the output STFT and MFCC
+                                                        num_feat_stft,
+                                                        num_feat_mfcc)
+            target_stft = torch.Tensor(feat1[l][:num_feat_stft])                #              Get the target STFT
+            MCD = mel_cepstral_distortion(mfcc1,output_mfcc)
+            STFT_D = stft_distortion(output_stft,target_stft)
+            loss = MCD + STFT_D                                                 #              Compute the hybrid loss
+            epoch_loss_list.append(loss)
+            loss.backward()                                                     #              Set the Backpropagation
+            optimizer.step()                                                    #              Take a step
+
+    epoch_loss = sum(epoch_loss_list).data.numpy()
+    epoch_train_loss.append(epoch_loss)
+    print('')
+plt.plot(epoch_train_loss)
+target_stft
+output_stft
 ###############################################################################
 
 
