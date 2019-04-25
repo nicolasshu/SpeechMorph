@@ -1,3 +1,5 @@
+
+
 import numpy as np
 import os
 from scipy.io.wavfile import read as wavread
@@ -9,7 +11,8 @@ import amfm_decompy.basic_tools as basic
 import pysptk
 import librosa
 import pyrenn
-# import IPython
+import IPython
+import matplotlib.pyplot as plt
 
 # Set the folders
 speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
@@ -24,6 +27,13 @@ for file in files:
     fs,audio = wavread(file)
     break
 # IPython.display.Audio(file)
+
+
+
+
+
+
+
 
 
 # YAAPT pitches
