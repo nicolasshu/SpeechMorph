@@ -391,8 +391,8 @@ for epoch_num in range(N_epochs):
     epoch_train_loss.append(epoch_loss)
     print('')
 plt.plot(epoch_train_loss)
-target_stft
-output_stft
+# target_stft
+# output_stft
 ###############################################################################
 
 
