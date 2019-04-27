@@ -22,6 +22,7 @@ from tqdm import tqdm
 import pickle
 import pandas as pd
 import datetime
+
 ################################################################################
 # GLOBAL VARIABLES
 ################################################################################
@@ -288,7 +289,7 @@ files1_val   = [files1[it] for it in ind_val]
 
 
 # Prepare the Neural Network
-model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+model = CustomNet1=5(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
 optimizer = optim.Adam(model.parameters(),lr=learning_rate,eps=epsilon,weight_decay=w_decay); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
 epoch_train_loss = []
 epoch_val_loss = []
@@ -303,7 +304,7 @@ for epoch_num in range(N_epochs):
     for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
         # if file_n == 3: break
         # print(".",end='')
-        HowsMyMemory()
+        if file_n % 25 == 0: HowsMyMemory()
         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
@@ -322,6 +323,7 @@ for epoch_num in range(N_epochs):
         L,F = feat0.shape                                                       #          L windows and F features
         batch_loss = 0                                                          #          Initialize a batch loss (batch = full audio file)
         batch_size = L
+        batch_size = 10
         for l in range(L):                                                      #          For each window segment on audio
             seg = feat0[l]                                                      #              Get the segment
             output = model(seg)                                                 #              Pass the segment through the model

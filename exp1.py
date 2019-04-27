@@ -30,12 +30,17 @@ plt.rcParams['figure.dpi'] = 150
 # Set the folders
 speakers = ['awb','bdl','clb','jmk','ksp','rms','slt']
 combos = []
+
 for subset in itertools.combinations(speakers, 2):
     combos.append(subset)
 start_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 YN = 0
 # YN = int(input('Do you want to see the spectrograms every 100?'))
+learning_rate = 0.0005
+epsilon = 1e-08
+w_decay = 0.001
+N_epochs = 20
 
 ################################################################################
 # HELPER FUNCTIONS
@@ -100,6 +105,9 @@ def get_output_components(output,num_feat_stft,num_feat_mfcc):
     out_mfcc = output[-num_feat_mfcc:]
     return out_stft,out_mfcc
 # ==============================================================================
+def HowsMyMemory():
+    import datetime, resource
+    print("TIME:    "+str(datetime.datetime.now())+'Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 ################################################################################
 # USELESS HELPER FUNCTIONS
 ################################################################################
@@ -110,9 +118,9 @@ def get_output_components(output,num_feat_stft,num_feat_mfcc):
 # ==============================================================================
 # ==============================================================================
 
-def Main():
-    print('Start of code.')
-    print('End of Code.')
+# def Main():
+#     print('Start of code.')
+
 
 ################################################################################
 # MAIN
@@ -120,6 +128,7 @@ def Main():
 if __name__ == '__main__':
     print('Start of Code.')
     # Main()
+    # print('End of Code.')
 
 ################################################################################
 # NICK EXPERIMENTING WITH SHIT
@@ -128,6 +137,7 @@ if __name__ == '__main__':
 class CustomNet1(nn.Module):                                                    # Define the Neural Network
     def __init__(self):
         super(CustomNet1,self).__init__()
+        self.description = '4-layer FC'
         self.full = nn.Sequential(nn.Linear(226,452),
                                   nn.ReLU(),
                                   nn.Linear(452,904),
@@ -140,11 +150,123 @@ class CustomNet1(nn.Module):                                                    
         x = torch.Tensor(x)
         x = self.full(x)
         return x
-
+class CustomNet2(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet2,self).__init__()
+        self.description = 'GAN'
+        self.full = nn.Sequential(nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU()
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet3(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet3,self).__init__()
+        self.description = 'Up-Down GAN'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU(),
+                                  nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU(),
+                                  nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226)
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet4(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet4,self).__init__()
+        self.description = 'Smaller GAN'
+        self.full = nn.Sequential(nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,10),
+                                  nn.ReLU(),
+                                  nn.Linear(10,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU()
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet5(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet5,self).__init__()
+        self.description = 'Super Large FC'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,3616),
+                                  nn.ReLU(),
+                                  nn.Linear(3616,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU())
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet6(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet6,self).__init__()
+        self.description = 'Large FC'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU())
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
 for combo in combos:                                                            # For each combination
-    print(combo)
+    # print(combo)
     break
-
+combo = ('bdl','rms')                                                       #     Force a Male-to-Male
+print(combo)
 spk0,spk1 = combo[0],combo[1]                                               #     Set the speakers
 folderpath0, files0 = get_files(spk0)                                       #     Obtain the source locations (i.e. files0)
 folderpath1, files1 = get_files(spk1)                                       #     Obtain the source locations (i.e. files1)
@@ -167,15 +289,13 @@ files1_val   = [files1[it] for it in ind_val]
 
 # Prepare the Neural Network
 model = CustomNet1(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
-optimizer = optim.SGD(model.parameters(),lr=0.0001); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
-
-N_epochs = 20
+optimizer = optim.Adam(model.parameters(),lr=learning_rate,eps=epsilon,weight_decay=w_decay); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
 epoch_train_loss = []
 epoch_val_loss = []
 
 for epoch_num in range(N_epochs):
 
-    print('Epoch [%d/%d]' % (epoch_num+1,N_epochs))
+    print('%s | Epoch [%d/%d]' % (model.description,epoch_num+1,N_epochs))
     train_loss_list = []                                                        #          Set the training loss_list
     val_loss_list = []
     # TRAINING PHASE ===========================================================
@@ -183,6 +303,7 @@ for epoch_num in range(N_epochs):
     for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
         # if file_n == 3: break
         # print(".",end='')
+        if file_n % 25 == 0: HowsMyMemory()
         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
@@ -278,7 +399,8 @@ plt.plot(epoch_train_loss,label ='Training Loss')
 plt.plot(epoch_val_loss,label='Validation Loss')
 
 
-yesno = int(input('Do you want to see the last set?'))
+# yesno = int(input('Do you want to see the last set?'))
+yesno = 0
 
 if yesno == 1:
     Output_STFT = np.array(Output_STFT)
@@ -288,5 +410,4 @@ if yesno == 1:
     plt.imshow(Output_STFT.T)
     plt.subplot(212)
     plt.imshow(Target_STFT.T)
-
-plt.show()
+    plt.savefig('./results/last_image_%s.png',start_time)
