@@ -303,7 +303,7 @@ for epoch_num in range(N_epochs):
     for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
         # if file_n == 3: break
         # print(".",end='')
-        if file_n % 25 == 0: if file_n % 25 == 0: HowsMyMemory()
+        if file_n % 25 == 0: HowsMyMemory()
         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
