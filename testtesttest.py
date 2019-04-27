@@ -105,6 +105,9 @@ def get_output_components(output,num_feat_stft,num_feat_mfcc):
     out_mfcc = output[-num_feat_mfcc:]
     return out_stft,out_mfcc
 # ==============================================================================
+def HowsMyMemory():
+    import datetime, resource
+    print("TIME:    "+str(datetime.datetime.now())+'Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 ################################################################################
 # USELESS HELPER FUNCTIONS
 ################################################################################
@@ -300,6 +303,7 @@ for epoch_num in range(N_epochs):
     for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
         # if file_n == 3: break
         # print(".",end='')
+        HowsMyMemory()
         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
         file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
         fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
