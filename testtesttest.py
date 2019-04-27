@@ -134,6 +134,7 @@ if __name__ == '__main__':
 class CustomNet1(nn.Module):                                                    # Define the Neural Network
     def __init__(self):
         super(CustomNet1,self).__init__()
+        self.description = '4-layer FC'
         self.full = nn.Sequential(nn.Linear(226,452),
                                   nn.ReLU(),
                                   nn.Linear(452,904),
@@ -146,7 +147,118 @@ class CustomNet1(nn.Module):                                                    
         x = torch.Tensor(x)
         x = self.full(x)
         return x
-
+class CustomNet2(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.description = 'GAN'
+        self.full = nn.Sequential(nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU()
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet3(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.description = 'Up-Down GAN'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU(),
+                                  nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU(),
+                                  nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226)
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet4(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.description = 'Smaller GAN'
+        self.full = nn.Sequential(nn.Linear(226,113),
+                                  nn.ReLU(),
+                                  nn.Linear(113,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,10),
+                                  nn.ReLU(),
+                                  nn.Linear(10,25),
+                                  nn.ReLU(),
+                                  nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,226),
+                                  nn.ReLU()
+                                  )
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet5(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.description = 'Super Large FC'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,3616),
+                                  nn.ReLU(),
+                                  nn.Linear(3616,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU())
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
+class CustomNet6(nn.Module):                                                    # Define the Neural Network
+    def __init__(self):
+        super(CustomNet1,self).__init__()
+        self.description = 'Large FC'
+        self.full = nn.Sequential(nn.Linear(226,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,1808),
+                                  nn.ReLU(),
+                                  nn.Linear(1808,904),
+                                  nn.ReLU(),
+                                  nn.Linear(904,452),
+                                  nn.ReLU(),
+                                  nn.Linear(452,226),
+                                  nn.ReLU())
+    def forward(self,x):
+        x = torch.Tensor(x)
+        x = self.full(x)
+        return x
 for combo in combos:                                                            # For each combination
     # print(combo)
     break
@@ -180,7 +292,7 @@ epoch_val_loss = []
 
 for epoch_num in range(N_epochs):
 
-    print('Epoch [%d/%d]' % (epoch_num+1,N_epochs))
+    print('%s | Epoch [%d/%d]' % (model.description,epoch_num+1,N_epochs))
     train_loss_list = []                                                        #          Set the training loss_list
     val_loss_list = []
     # TRAINING PHASE ===========================================================
