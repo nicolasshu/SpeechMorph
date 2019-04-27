@@ -301,7 +301,7 @@ for epoch_num in range(N_epochs):
     # TRAINING PHASE ===========================================================
     print('TRAINING')
     for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
-        # if file_n == 3: break
+        if file_n == 500: break
         # print(".",end='')
         if file_n % 25 == 0: HowsMyMemory()
         file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
@@ -322,7 +322,7 @@ for epoch_num in range(N_epochs):
         L,F = feat0.shape                                                       #          L windows and F features
         batch_loss = 0                                                          #          Initialize a batch loss (batch = full audio file)
         batch_size = L
-        batch_size = 10
+        # batch_size = 10
         for l in range(L):                                                      #          For each window segment on audio
             seg = feat0[l]                                                      #              Get the segment
             output = model(seg)                                                 #              Pass the segment through the model
