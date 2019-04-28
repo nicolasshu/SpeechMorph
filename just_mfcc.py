@@ -113,7 +113,7 @@ def get_output_components(output,num_feat_stft,num_feat_mfcc):
 # ==============================================================================
 def HowsMyMemory():
     import datetime, resource
-    print("TIME:    "+str(datetime.datetime.now())+'Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    print("TIME:    "+str(datetime.datetime.now())+' | Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 ################################################################################
 # USELESS HELPER FUNCTIONS
 ################################################################################
@@ -123,18 +123,6 @@ def HowsMyMemory():
 # ==============================================================================
 # ==============================================================================
 # ==============================================================================
-
-# def Main():
-#     print('Start of code.')
-
-
-################################################################################
-# MAIN
-################################################################################
-if __name__ == '__main__':
-    print('Start of Code.')
-    # Main()
-    # print('End of Code.')
 
 ################################################################################
 # NICK EXPERIMENTING WITH SHIT
@@ -280,6 +268,7 @@ class CustomNet7(nn.Module):                                                    
                                   nn.ReLU(),
                                   nn.Linear(50,25),
                                   nn.ReLU(),
+                                  )
     def forward(self,x):
         x = torch.Tensor(x)
         x = self.full(x)
@@ -492,9 +481,6 @@ def OnlyMFCC(model):
 
             mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
 
-            num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
-            num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
-            # plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0_)); plt.subplot(4,1,2); plt.pcolormesh(comps0['mfcc'].T); plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1_)); plt.subplot(4,1,4); plt.pcolormesh(comps1['mfcc'].T); plt.tight_layout(); plt.savefig('./non-aligned.png'); plt.figure(); plt.subplot(4,1,1); plt.pcolormesh(np.log(feat0.T)); plt.subplot(4,1,2); plt.pcolormesh(mfcc0.T); plt.subplot(4,1,3); plt.pcolormesh(np.log(feat1.T)); plt.subplot(4,1,4); plt.pcolormesh(mfcc1.T); plt.tight_layout(); plt.savefig('./aligned.png')
             L,F = mfcc0.shape
             batch_loss = 0
             batch_size = L
@@ -531,8 +517,6 @@ def OnlyMFCC(model):
             feat0,feat1 = align_features(feat0_.T,feat1_.T)                         #          Align the STFT+MFCC features
             mfcc0,mfcc1 = align_features(comps0['mfcc'],comps1['mfcc'])             #          Align the MFCC features
 
-            num_feat_stft = feat0.shape[1]-mfcc0.shape[1]                           #          Obtain the number of DFT coefficients
-            num_feat_mfcc = mfcc0.shape[1]                                          #          Obtain the number of MFC coefficients
             L,F = mfcc0.shape                                                       #          L windows and F features
             for l in range(L):                                                      #          For each window segment on audio
                 seg = mfcc0[l]                                                      #              Get the segment
@@ -549,6 +533,14 @@ def OnlyMFCC(model):
     plt.plot(epoch_train_loss,label ='Training Loss')
     plt.plot(epoch_val_loss,label='Validation Loss')
 
-my_model = CustomNet7()
-OnlyMFCC(my_model)
-plt.show()
+################################################################################
+# MAIN
+################################################################################
+if __name__ == '__main__':
+    print('Start of Code.')
+
+    my_model = CustomNet7()
+    OnlyMFCC(my_model)
+    print('End of Code.')
+
+    plt.show()

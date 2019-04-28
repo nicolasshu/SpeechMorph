@@ -107,7 +107,7 @@ def get_output_components(output,num_feat_stft,num_feat_mfcc):
 # ==============================================================================
 def HowsMyMemory():
     import datetime, resource
-    print("TIME:    "+str(datetime.datetime.now())+'Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    print("TIME:    "+str(datetime.datetime.now())+' | Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 ################################################################################
 # USELESS HELPER FUNCTIONS
 ################################################################################
