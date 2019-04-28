@@ -43,7 +43,7 @@ learning_rate = 0.0005
 epsilon = 1e-08
 w_decay = 0.001
 N_epochs = 20
-
+epoch_size = 40
 
 files = os.listdir(os.getcwd())
 if 'results' not in files:
@@ -187,7 +187,7 @@ def OnlyMFCC(model):
         # TRAINING PHASE ===========================================================
         print('TRAINING')
         for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
-            if file_n == 100: break
+            if file_n == epoch_size: break
             file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
             file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
             fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
@@ -218,7 +218,7 @@ def OnlyMFCC(model):
                 optimizer.step()
 
         train_loss = sum(train_loss_list).data.numpy() / (file_n + 1)
-        
+
         epoch_train_loss.append(train_loss)
 
         # VALIDATION PHASE =========================================================
