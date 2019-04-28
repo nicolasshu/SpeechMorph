@@ -81,8 +81,7 @@ def align_features(feat0,feat1):
     FEAT1 = []
     for step in path:
         i,j = step
-        FEAT0.
-        (feat0[i])
+        FEAT0.append(feat0[i])
         FEAT1.append(feat1[j])
     FEAT0 = np.array(FEAT0)
     FEAT1 = np.array(FEAT1)
