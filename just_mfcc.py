@@ -81,7 +81,8 @@ def align_features(feat0,feat1):
     FEAT1 = []
     for step in path:
         i,j = step
-        FEAT0.append(feat0[i])
+        FEAT0.
+        (feat0[i])
         FEAT1.append(feat1[j])
     FEAT0 = np.array(FEAT0)
     FEAT1 = np.array(FEAT1)
@@ -469,7 +470,7 @@ def OnlyMFCC(model):
         for file_n, file0,file1 in tqdm(zip(np.arange(len(files0_train)),files0_train,files1_train)):       #     For each set of files
             # if file_n == 3: break
             # print(".",end='')
-            if file_n % 25 == 0: HowsMyMemory()
+            # if file_n % 25 == 0: HowsMyMemory()
             file0 = os.path.join(folderpath0,file0)                                 #          Set the file0
             file1 = os.path.join(folderpath1,file1)                                 #          Set the file1
             fs0,audio0 = wavread(file0)                                             #          Obtain the audio0
@@ -489,11 +490,15 @@ def OnlyMFCC(model):
                 output = model(seg)
                 target = torch.Tensor(mfcc1[l])
                 loss = mel_cepstral_distortion(target,output)
-                batch_loss += loss
-                if l % batch_size == 0:
-                    train_loss_list.append(batch_loss)
-                    batch_loss.backward()
-                    optimizer.step()
+                # batch_loss += loss
+                # if l % batch_size == 0:
+                #     train_loss_list.append(batch_loss)
+                #     batch_loss.backward()
+                #     optimizer.step()
+                train_loss_list.append(loss)
+                loss.backward()
+                optimizer.step()
+
 
 
 
