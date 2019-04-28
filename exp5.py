@@ -289,7 +289,7 @@ files1_val   = [files1[it] for it in ind_val]
 
 
 # Prepare the Neural Network
-model = CustomNet1=5(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
+model = CustomNet5(); model.zero_grad()                                     #     Create the model, and set the gradients to zero
 optimizer = optim.Adam(model.parameters(),lr=learning_rate,eps=epsilon,weight_decay=w_decay); optimizer.zero_grad()  #     Create an optimizer and set the grads to zero
 epoch_train_loss = []
 epoch_val_loss = []
