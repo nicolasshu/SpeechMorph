@@ -43,7 +43,7 @@ learning_rate = 0.01
 epsilon = 1e-08
 w_decay = 0.00
 N_epochs = 300
-epoch_size = 50
+epoch_size = 200
 
 DEBUG = False 
 
@@ -136,6 +136,15 @@ class CustomNet7(nn.Module):                                                    
     def __init__(self):
         super(CustomNet7,self).__init__()
         self.description = 'Large FC'
+        self.full = nn.Sequential(nn.Linear(25,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,75),
+                                  nn.ReLU(),
+                                  nn.Linear(75,50),
+                                  nn.ReLU(),
+                                  nn.Linear(50,25),
+                                  nn.ReLU(),
+                                  )
         self.full = nn.Sequential(nn.Linear(25,50),nn.Tanh(),nn.Linear(50,50),nn.Tanh(),nn.Linear(50,25))
     def forward(self,x):
         x = torch.Tensor(x)
