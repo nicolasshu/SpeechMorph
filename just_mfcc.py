@@ -24,6 +24,33 @@ import pandas as pd
 import datetime
 import math
 import ipdb
+from nnmnkwii import metrics
+
+
+# Extra Libs
+
+from nnmnkwii.datasets import PaddedFileSourceDataset
+from nnmnkwii.datasets.cmu_arctic import CMUArcticWavFileDataSource
+from nnmnkwii.preprocessing.alignment import DTWAligner
+from nnmnkwii.preprocessing import trim_zeros_frames, remove_zeros_frames, delta_features
+from nnmnkwii.util import apply_each2d_trim
+from nnmnkwii.metrics import melcd
+from nnmnkwii.baseline.gmm import MLPG
+
+from os.path import basename, splitext
+import sys
+import time
+
+import numpy as np
+from scipy.io import wavfile
+from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import train_test_split
+import pyworld
+import pysptk
+from pysptk.synthesis import MLSADF, Synthesizer
+import librosa
+import librosa.display
+import IPython
 ################################################################################
 # GLOBAL VARIABLES
 ################################################################################
@@ -45,12 +72,15 @@ w_decay = 0.00
 N_epochs = 300
 epoch_size = 50
 
-DEBUG = False 
+DEBUG = False
 
 files = os.listdir(os.getcwd())
 if 'results' not in files:
     os.makedirs('results')
 
+fs = 16000
+fftlen = pyworld.get_cheaptrick_fft_size(fs)
+alpha = pysptk.util.mcepalpha(fs)
 
 ################################################################################
 # HELPER FUNCTIONS
@@ -72,7 +102,18 @@ def extract_features(audio,fs=16000,numcep=25,winlen=0.025,winstep=0.01):
     # print(mfcc.T.shape)
     # print(lps.shape)
     feat = np.concatenate((mfcc.T,lps))
-    return feat,{'mfcc':mfcc,'lps':lps,'phase':phase},{'f':freq,'t':time,'stft':stft}
+    # return feat,{'mfcc':mfcc,'lps':lps,'phase':phase},{'f':freq,'t':time,'stft':stft}
+
+    frame_period = 5
+    order = 24
+    audio = audio.astype(np.float64)
+    f0, timeaxis = pyworld.dio(audio, fs, frame_period=frame_period)
+    f0 = pyworld.stonemask(audio, f0, timeaxis, fs)
+    spectrogram = pyworld.cheaptrick(audio, f0, timeaxis, fs)
+    spectrogram = trim_zeros_frames(spectrogram)
+    mc = pysptk.sp2mc(spectrogram, order=order, alpha=alpha)
+
+    return feat,{'mfcc':mc,'lps':lps,'phase':phase},{'f':freq,'t':time,'stft':stft}
 # ==============================================================================
 def align_features(feat0,feat1):
     distance, path = fastdtw(feat0,feat0,dist=euclidean)
@@ -89,13 +130,20 @@ def align_features(feat0,feat1):
         FEAT1.append(feat1[j])
     FEAT0 = np.array(FEAT0)
     FEAT1 = np.array(FEAT1)
-    return FEAT0,FEAT1
+    # return FEAT0,FEAT1
+
+
+    X_aligned, Y_aligned = DTWAligner(verbose=0, dist=melcd).transform((feat0, feat1))
+    X_aligned, Y_aligned = X_aligned[:, :, 1:], Y_aligned[:, :, 1:]
+    return X_aligned, Y_aligned
+
 # ==============================================================================
 def mel_cepstral_distortion(target,estimated):
     target = torch.Tensor(target)
     estimated = torch.Tensor(estimated)
     loss = 10*torch.log(torch.Tensor([10])) * torch.sqrt(2*torch.sum((target-estimated)**2))
-    return loss#.pow(2)
+    # return loss#.pow(2)
+    return metrics.melcd(target,estimated)
 # ==============================================================================
 def stft_distortion(target,estimated):
     target = torch.Tensor(target)
@@ -244,7 +292,7 @@ def OnlyMFCC(model):
                 if DEBUG and l % 100 == 0: print(np.array([output.data.numpy(),target.data.numpy()]).T)
         val_loss = sum(val_loss_list).data.numpy() / (file_n + 1)
         epoch_val_loss.append(val_loss)
-        
+
         comparison = np.array([output.data.numpy(),target.data.numpy()]).T
         print('Training Loss: %.2f E6 | Validation Loss: %.2f E6' %(train_loss/1000000,val_loss/1000000))
         print(str(comparison))
