@@ -1,0 +1,13 @@
+nonaligned_MFCC.png
+The figure __FILL__ shows both the extracted MFCCs taken from the source audio and to a target audio, prior to being processed. Figure __FILL__ shows the same extracted MFCCs but time warmed to align to each other.
+
+aligned_MFCC.png
+
+epochsize_60.png
+
+epochsize_200.png
+
+
+output_target_comparison.png
+
+output_target_difference.png
